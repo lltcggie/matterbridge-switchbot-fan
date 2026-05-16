@@ -1,9 +1,9 @@
 {
-  "name": "matterbridge-switchbot-curtain",
+  "name": "matterbridge-switchbot-fan",
   "version": "1.0.0",
-  "description": "Matterbridge Plugin for SwitchBot Curtain Devices",
+  "description": "Matterbridge Plugin for SwitchBot Circulator Fan Devices",
   "author": "https://github.com/lltcggie",
-  "homepage": "https://github.com/lltcggie/matterbridge-switchbot-curtain/blob/main/README.md",
+  "homepage": "https://github.com/lltcggie/matterbridge-switchbot-fan/blob/main/README.md",
   "license": "Apache-2.0",
   "type": "module",
   "main": "dist/module.js",
@@ -13,10 +13,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/lltcggie/matterbridge-switchbot-curtain.git"
+    "url": "git+https://github.com/lltcggie/matterbridge-switchbot-fan.git"
   },
   "bugs": {
-    "url": "https://github.com/lltcggie/matterbridge-switchbot-curtain/issues"
+    "url": "https://github.com/lltcggie/matterbridge-switchbot-fan/issues"
   },
   "keywords": [
     "matterbridge",
@@ -37,7 +37,8 @@
     "smartthings",
     "ewelink",
     "switchbot",
-    "curtain"
+    "fan",
+    "circulator"
   ],
   "scripts": {
     "start": "matterbridge",
@@ -118,6 +119,7 @@
     "eslint-plugin-prettier": "5.5.4",
     "eslint-plugin-promise": "7.2.1",
     "jest": "30.2.0",
+    "matterbridge": "^3.7.9",
     "npm-check-updates": "19.1.2",
     "prettier": "3.6.2",
     "shx": "0.4.0",

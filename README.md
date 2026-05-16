@@ -1,7 +1,15 @@
-# <img src="matterbridge.svg" alt="Matterbridge Logo" width="64px" height="64px">&nbsp;&nbsp;&nbsp;matterbridge-switchbot-curtain
+# <img src="matterbridge.svg" alt="Matterbridge Logo" width="64px" height="64px">&nbsp;&nbsp;&nbsp;matterbridge-switchbot-fan
 
-[Matterbridge](https://github.com/Luligu/matterbridge)でSwitchBot カーテンをBLE経由でMatterで接続できるようにするためのプラグインです。
-SwitchBot カーテン3で動作確認することをしています。
+[Matterbridge](https://github.com/Luligu/matterbridge)でSwitchBot サーキュレーターをBLE経由でMatterで接続できるようにするためのプラグインです。
+SwitchBot サーキュレーター Liteで動作確認することをしています。
+
+Matterの Fan Control クラスタを通じて、以下の操作に対応しています。
+
+- 電源 ON / OFF (Matter `fanMode` Off↔High)
+- 風量 (`percentSetting` 0..100, または `fanMode` Low/Medium/High)
+- 首振り (`rockSetting.rockLeftRight` 左右首振り)
+- 風モード (`windSetting.naturalWind` → NATURAL、`windSetting.sleepWind` → SLEEP、両方 OFF → NORMAL)
+- バッテリー残量の報告
 
 ## 初期設定
 

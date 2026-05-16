@@ -17,16 +17,26 @@
 import { AnsiLogger } from 'matterbridge/logger';
 import { SwitchbotDevice } from 'node-switchbot';
 
+import { SwitchBotFanMatterDevice } from './SwitchBotFanMatterDevice.js';
 import { SwitchBotMatterDevice } from './SwitchBotMatterDevice.js';
-import { SwitchBotCurtainMatterDevice } from './SwitchBotCurtainMatterDevice.js';
 
-export default async function switchBotMatterFactory(device: SwitchbotDevice, startScan: () => Promise<void>, log: AnsiLogger): Promise<SwitchBotMatterDevice | undefined> {
-  const deviceType = device.model;
-  switch (deviceType) {
-    case 'c':
-      log.debug(`SwitchBot - switchBotMatterFactory: Detected device type: 'SwitchBotCurtainMatterDevice'`);
-      return new SwitchBotCurtainMatterDevice(device, startScan, log);
-    default:
-      throw new Error(`SwitchBot - switchBotMatterFactory('${device.address}'): Unknown device type: '${deviceType}'`);
+// Service-data prefix characters used by SwitchBot Circulator Fans. These come
+// from the SwitchBot BLE protocol — '~' (0x7E) for the battery / standalone
+// version and '^' (0x5E) for the rechargeable / AC version. node-switchbot's
+// own model enum does not (yet) cover these, which is why we detect them by
+// the raw character here.
+const CIRCULATOR_FAN_MODELS = new Set<string>(['~', '^']);
+
+export default async function switchBotMatterFactory(
+  device: SwitchbotDevice,
+  serviceDataModel: string,
+  address: string,
+  startScan: () => Promise<void>,
+  log: AnsiLogger,
+): Promise<SwitchBotMatterDevice | undefined> {
+  if (CIRCULATOR_FAN_MODELS.has(serviceDataModel)) {
+    log.debug(`SwitchBot - switchBotMatterFactory: Detected device type: 'SwitchBotFanMatterDevice' (model='${serviceDataModel}')`);
+    return new SwitchBotFanMatterDevice(device, address, startScan, log);
   }
+  throw new Error(`SwitchBot - switchBotMatterFactory('${address}'): Unknown device type: '${serviceDataModel}'`);
 }

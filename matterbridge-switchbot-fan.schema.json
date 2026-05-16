@@ -1,6 +1,6 @@
 {
-    "title": "Matterbridge SwitchBot Curtain plugin",
-    "description": "matterbridge-switchbot-curtain v1.0.0 by lltcggie",
+    "title": "Matterbridge SwitchBot Circulator Fan plugin",
+    "description": "matterbridge-switchbot-fan v1.0.0 by lltcggie",
     "type": "object",
     "required": [],
     "properties": {
