@@ -9,7 +9,7 @@
         "--inspect-wait",
         "--trace-warnings",
         "-e",
-        "import('/usr/local/lib/node_modules/matterbridge/dist/cli.js')"
+        "import('/usr/local/lib/node_modules/matterbridge/node_modules/@matterbridge/core/dist/cli.js')"
       ],
       "isBackground": true,
       "problemMatcher": {
