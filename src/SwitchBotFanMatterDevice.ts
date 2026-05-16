@@ -161,9 +161,15 @@ class SwitchBotFanMatterDevice implements SwitchBotMatterDevice {
     this.RootEndpoint.addRequiredClusterServers();
 
     this.Endpoint = this.RootEndpoint.addChildDeviceType('main', [fanDevice], { id: `${idKey}-main` }, platform.config.debug as boolean);
-    this.Endpoint.addRequiredClusterServers();
 
-    this.Endpoint.createDefaultGroupsClusterServer()
+    // fanDevice requires Identify, Groups, FanControl. Register them
+    // explicitly so we can install the *complete* FanControl variant (with
+    // the MultiSpeed/Rocking/Wind/AirflowDirection features). Calling
+    // addRequiredClusterServers() here would install the default FanControl
+    // implementation first, which then conflicts with the complete one
+    // ("incompatible implementation already exists").
+    this.Endpoint.createDefaultIdentifyClusterServer()
+      .createDefaultGroupsClusterServer()
       .createCompleteFanControlClusterServer(
         FanControl.FanMode.Off,
         FanControl.FanModeSequence.OffLowMedHigh,
