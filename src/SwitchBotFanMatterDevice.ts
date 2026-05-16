@@ -202,66 +202,6 @@ class SwitchBotFanMatterDevice implements SwitchBotMatterDevice {
     this.Endpoint.addCommandHandler('identify', async ({ request: { identifyTime } }) => {
       this.log.debug(`Command identify called identifyTime: ${identifyTime}`);
     });
-
-    void this.Endpoint.subscribeAttribute(
-      'fanControl',
-      'fanMode',
-      async (newValue: FanControl.FanMode, oldValue: FanControl.FanMode, context: { offline?: boolean }) => {
-        if (context.offline === true) return;
-        if (newValue === oldValue) return;
-        this.log.debug(`Fan fanMode attribute changed: ${oldValue} -> ${newValue}`);
-        await this.handleFanModeChange(newValue);
-      },
-      this.Endpoint.log,
-    ).catch(() => {});
-
-    void this.Endpoint.subscribeAttribute(
-      'fanControl',
-      'percentSetting',
-      async (newValue: number | null, oldValue: number | null, context: { offline?: boolean }) => {
-        if (context.offline === true) return;
-        if (newValue === oldValue) return;
-        if (newValue === null) return;
-        this.log.debug(`Fan percentSetting attribute changed: ${oldValue} -> ${newValue}`);
-        await this.handlePercentChange(newValue);
-      },
-      this.Endpoint.log,
-    ).catch(() => {});
-
-    void this.Endpoint.subscribeAttribute(
-      'fanControl',
-      'rockSetting',
-      async (
-        newValue: { rockLeftRight: boolean; rockUpDown: boolean; rockRound: boolean },
-        oldValue: { rockLeftRight: boolean; rockUpDown: boolean; rockRound: boolean },
-        context: { offline?: boolean },
-      ) => {
-        if (context.offline === true) return;
-        const newOsc = newValue?.rockLeftRight === true;
-        const oldOsc = oldValue?.rockLeftRight === true;
-        if (newOsc === oldOsc) return;
-        this.log.debug(`Fan rockSetting attribute changed: ${oldOsc} -> ${newOsc}`);
-        await this.handleOscillationChange(newOsc);
-      },
-      this.Endpoint.log,
-    ).catch(() => {});
-
-    void this.Endpoint.subscribeAttribute(
-      'fanControl',
-      'windSetting',
-      async (newValue: { sleepWind: boolean; naturalWind: boolean }, oldValue: { sleepWind: boolean; naturalWind: boolean }, context: { offline?: boolean }) => {
-        if (context.offline === true) return;
-        const newSleep = newValue?.sleepWind === true;
-        const newNatural = newValue?.naturalWind === true;
-        const oldSleep = oldValue?.sleepWind === true;
-        const oldNatural = oldValue?.naturalWind === true;
-        if (newSleep === oldSleep && newNatural === oldNatural) return;
-        this.currentWindSetting = { sleepWind: newSleep, naturalWind: newNatural };
-        this.log.debug(`Fan windSetting attribute changed: sleep ${oldSleep}->${newSleep}, natural ${oldNatural}->${newNatural}`);
-        await this.handleWindSettingChange(newSleep, newNatural);
-      },
-      this.Endpoint.log,
-    ).catch(() => {});
   }
 
   public async registerWithPlatform(platform: MatterbridgeDynamicPlatform) {
@@ -270,6 +210,80 @@ class SwitchBotFanMatterDevice implements SwitchBotMatterDevice {
     if (platform.validateDevice(this.RootEndpoint.deviceName ?? '')) {
       await platform.registerDevice(this.RootEndpoint);
     }
+
+    // Subscriptions have to be installed *after* the endpoint has been
+    // registered with Matterbridge — only then does the underlying matter.js
+    // endpoint reach the Active lifecycle state and expose its event emitters
+    // through `endpoint.events[clusterName][attribute]`. Subscribing before
+    // that silently no-ops because the events map does not contain the
+    // fanControl cluster yet.
+    await this.installSubscriptions();
+  }
+
+  private async installSubscriptions() {
+    const okFanMode = await this.Endpoint.subscribeAttribute(
+      'fanControl',
+      'fanMode',
+      (newValue: FanControl.FanMode, oldValue: FanControl.FanMode, context: { offline?: boolean }) => {
+        this.log.info(`Fan fanMode attribute changed: ${oldValue} -> ${newValue} (offline=${context.offline === true})`);
+        if (context.offline === true) return;
+        if (newValue === oldValue) return;
+        void this.handleFanModeChange(newValue);
+      },
+      this.Endpoint.log,
+    );
+    this.log.debug(`subscribe fanMode -> ${okFanMode}`);
+
+    const okPercent = await this.Endpoint.subscribeAttribute(
+      'fanControl',
+      'percentSetting',
+      (newValue: number | null, oldValue: number | null, context: { offline?: boolean }) => {
+        this.log.info(`Fan percentSetting attribute changed: ${oldValue} -> ${newValue} (offline=${context.offline === true})`);
+        if (context.offline === true) return;
+        if (newValue === oldValue) return;
+        if (newValue === null) return;
+        void this.handlePercentChange(newValue);
+      },
+      this.Endpoint.log,
+    );
+    this.log.debug(`subscribe percentSetting -> ${okPercent}`);
+
+    const okRock = await this.Endpoint.subscribeAttribute(
+      'fanControl',
+      'rockSetting',
+      (
+        newValue: { rockLeftRight: boolean; rockUpDown: boolean; rockRound: boolean },
+        oldValue: { rockLeftRight: boolean; rockUpDown: boolean; rockRound: boolean },
+        context: { offline?: boolean },
+      ) => {
+        this.log.info(`Fan rockSetting attribute changed: ${JSON.stringify(oldValue)} -> ${JSON.stringify(newValue)} (offline=${context.offline === true})`);
+        if (context.offline === true) return;
+        const newOsc = newValue?.rockLeftRight === true;
+        const oldOsc = oldValue?.rockLeftRight === true;
+        if (newOsc === oldOsc) return;
+        void this.handleOscillationChange(newOsc);
+      },
+      this.Endpoint.log,
+    );
+    this.log.debug(`subscribe rockSetting -> ${okRock}`);
+
+    const okWind = await this.Endpoint.subscribeAttribute(
+      'fanControl',
+      'windSetting',
+      (newValue: { sleepWind: boolean; naturalWind: boolean }, oldValue: { sleepWind: boolean; naturalWind: boolean }, context: { offline?: boolean }) => {
+        this.log.info(`Fan windSetting attribute changed: ${JSON.stringify(oldValue)} -> ${JSON.stringify(newValue)} (offline=${context.offline === true})`);
+        if (context.offline === true) return;
+        const newSleep = newValue?.sleepWind === true;
+        const newNatural = newValue?.naturalWind === true;
+        const oldSleep = oldValue?.sleepWind === true;
+        const oldNatural = oldValue?.naturalWind === true;
+        if (newSleep === oldSleep && newNatural === oldNatural) return;
+        this.currentWindSetting = { sleepWind: newSleep, naturalWind: newNatural };
+        void this.handleWindSettingChange(newSleep, newNatural);
+      },
+      this.Endpoint.log,
+    );
+    this.log.debug(`subscribe windSetting -> ${okWind}`);
   }
 
   public async destroy() {}
