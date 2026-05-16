@@ -170,9 +170,13 @@ class SwitchBotFanMatterDevice implements SwitchBotMatterDevice {
     // ("incompatible implementation already exists").
     this.Endpoint.createDefaultIdentifyClusterServer()
       .createDefaultGroupsClusterServer()
+      // createCompleteFanControlClusterServer constructs the cluster with the
+      // Auto feature always enabled, so the FanModeSequence MUST include
+      // Auto (OffLowMedHighAuto / OffLowHighAuto / OffHighAuto). Passing
+      // OffLowMedHigh here fails with an enum-value-conformance error.
       .createCompleteFanControlClusterServer(
         FanControl.FanMode.Off,
-        FanControl.FanModeSequence.OffLowMedHigh,
+        FanControl.FanModeSequence.OffLowMedHighAuto,
         0, // percentSetting
         0, // percentCurrent
         100, // speedMax
@@ -339,6 +343,9 @@ class SwitchBotFanMatterDevice implements SwitchBotMatterDevice {
         targetPercent = 66;
         break;
       case FanControl.FanMode.High:
+      case FanControl.FanMode.Auto:
+        // SwitchBot circulator fans have no real Auto mode, so we just leave
+        // them running at full speed when the controller requests Auto.
         targetPercent = 100;
         break;
       default:
