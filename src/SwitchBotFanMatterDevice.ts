@@ -128,11 +128,17 @@ class SwitchBotFanMatterDevice implements SwitchBotMatterDevice {
   public Endpoint!: MatterbridgeEndpoint;
 
   private refreshLock = new AsyncLock({ timeout: 1000 * 4 });
-  private commandLock = new AsyncLock({ timeout: 1000 * 10 });
+  private commandLock = new AsyncLock({ timeout: 1000 * 30 });
 
   // Mirror the last advertised state so that we can decide which BLE command
   // a Matter attribute write should translate to.
   private lastState: FanAdvertisementState | null = null;
+
+  // We also track power state locally because BLE advertisements only arrive
+  // every few seconds; relying solely on `lastState.isOn` can leave us out of
+  // sync with what we just commanded. `null` means we have not yet observed
+  // or commanded the device.
+  private localIsOn: boolean | null = null;
 
   // Track whether the device is currently in a wind-emulating mode (NATURAL or
   // SLEEP). Matter's percentSetting writes should not override these modes
@@ -304,6 +310,7 @@ class SwitchBotFanMatterDevice implements SwitchBotMatterDevice {
 
     await this.refreshLock.acquire('refresh', async () => {
       this.lastState = state;
+      this.localIsOn = state.isOn;
       const promises: Promise<unknown>[] = [];
 
       const fanMode = fanModeFromSpeed(state.speed, state.isOn);
@@ -334,7 +341,7 @@ class SwitchBotFanMatterDevice implements SwitchBotMatterDevice {
     });
   }
 
-  private async sendCommand(label: string, buf: Buffer): Promise<void> {
+  private async sendCommand(label: string, buf: Buffer, postDelayMs = 0): Promise<void> {
     await this.commandLock.acquire('command', async () => {
       this.log.debug(`SwitchBot Fan (${this.address}) sending ${label}: ${buf.toString('hex')}`);
       try {
@@ -346,21 +353,33 @@ class SwitchBotFanMatterDevice implements SwitchBotMatterDevice {
         // Restart it so we keep getting advertisement updates.
         await this.startScan();
       }
+      if (postDelayMs > 0) {
+        await new Promise<void>((resolve) => setTimeout(resolve, postDelayMs));
+      }
     });
+  }
+
+  private isCurrentlyOn(): boolean {
+    if (this.localIsOn !== null) return this.localIsOn;
+    return this.lastState?.isOn === true;
   }
 
   private async handleFanModeChange(fanMode: FanControl.FanMode): Promise<void> {
     if (fanMode === FanControl.FanMode.Off) {
       await this.sendCommand('TURN_OFF', CMD_TURN_OFF);
+      this.localIsOn = false;
       return;
     }
 
     // Make sure the fan is on, then translate the Matter fan mode into a
     // percentage. We avoid changing the SwitchBot preset mode here so that
     // users can keep NATURAL/SLEEP active via the wind setting.
-    const wasOn = this.lastState?.isOn === true;
-    if (!wasOn) {
-      await this.sendCommand('TURN_ON', CMD_TURN_ON);
+    if (!this.isCurrentlyOn()) {
+      // Give the firmware time to actually process the power-on before we
+      // immediately follow up with a speed command — back-to-back commands
+      // are sometimes dropped by the device.
+      await this.sendCommand('TURN_ON', CMD_TURN_ON, 400);
+      this.localIsOn = true;
     }
 
     let targetPercent: number | null = null;
@@ -388,11 +407,12 @@ class SwitchBotFanMatterDevice implements SwitchBotMatterDevice {
   private async handlePercentChange(percent: number): Promise<void> {
     if (percent <= 0) {
       await this.sendCommand('TURN_OFF', CMD_TURN_OFF);
+      this.localIsOn = false;
       return;
     }
-    const wasOn = this.lastState?.isOn === true;
-    if (!wasOn) {
-      await this.sendCommand('TURN_ON', CMD_TURN_ON);
+    if (!this.isCurrentlyOn()) {
+      await this.sendCommand('TURN_ON', CMD_TURN_ON, 400);
+      this.localIsOn = true;
     }
     await this.sendCommand(`SET_PERCENTAGE(${percent})`, buildSetPercentageCommand(percent));
   }
