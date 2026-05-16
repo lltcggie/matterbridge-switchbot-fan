@@ -64,7 +64,16 @@ interface FanAdvertisementState {
 /**
  * Parses the Circulator Fan manufacturer data into a state object.
  *
- * Byte layout (mfr_data[6:] in pyswitchbot terms):
+ * Input layout (raw `peripheral.advertisement.manufacturerData` from noble):
+ *   [0..1] manufacturer/company ID (0x0969 → 2409, SwitchBot)
+ *   [2..7] device MAC address (6 bytes)
+ *   [8..]  device-specific payload
+ *
+ * pyswitchbot operates on `mfr_data[6:]`, which corresponds to the bytes
+ * starting at offset 8 here because Home Assistant's bluetooth integration
+ * already strips the 2-byte company ID before handing the buffer over.
+ *
+ * Device-specific payload layout (offset 8+ in the raw buffer):
  *   [0] sequence number
  *   [1] bit 7  = isOn
  *       bits 6..4 = mode
@@ -74,12 +83,12 @@ interface FanAdvertisementState {
  *   [2] bits 6..0 = battery percentage
  *   [3] bits 6..0 = speed percentage
  *
- * @param {Buffer | undefined | null} mfrData - Manufacturer-data buffer from the BLE advertisement.
+ * @param {Buffer | undefined | null} mfrData - Manufacturer-data buffer from the BLE advertisement (company ID included).
  * @returns {FanAdvertisementState | null} Parsed state, or null if the buffer is too short.
  */
 function parseFanManufacturerData(mfrData: Buffer | undefined | null): FanAdvertisementState | null {
-  if (!mfrData || mfrData.length < 10) return null;
-  const deviceData = mfrData.subarray(6);
+  if (!mfrData || mfrData.length < 12) return null;
+  const deviceData = mfrData.subarray(8);
   if (deviceData.length < 4) return null;
 
   const byte1 = deviceData[1];
@@ -270,8 +279,14 @@ class SwitchBotFanMatterDevice implements SwitchBotMatterDevice {
     // passes the raw advertisement shape with `manufacturerData` to us. Be
     // permissive about the input shape.
     const mfrData: Buffer | undefined = ad?.manufacturerData ?? ad?.serviceData?.manufacturerData;
+    if (mfrData) {
+      this.log.debug(`SwitchBot Fan (${this.address}) raw manufacturerData (${mfrData.length}B): ${mfrData.toString('hex')}`);
+    }
     const state = parseFanManufacturerData(mfrData);
     if (!state) return;
+    this.log.debug(
+      `SwitchBot Fan (${this.address}) parsed: isOn=${state.isOn} mode=${state.mode} speed=${state.speed} battery=${state.battery} oscH=${state.oscillatingHorizontal} oscV=${state.oscillatingVertical}`,
+    );
 
     await this.refreshLock.acquire('refresh', async () => {
       this.lastState = state;
